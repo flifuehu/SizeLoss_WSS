@@ -37,7 +37,7 @@ class Partial_CE(torch.autograd.Function):
         eps = 1e-10
 
         oneHotLabels = torch.cat((weakLabels == 0, weakLabels == 1), dim=0).view(input.shape).float()
-        numPixelsNonMasked = weakLabels.sum().data[0]
+        numPixelsNonMasked = weakLabels.sum().item()
 
         # softmax_y = input.cpu().data.numpy()
         softmax_y = input.data

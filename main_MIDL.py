@@ -9,7 +9,8 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-import medicalDataLoader
+# import medicalDataLoader
+import lap_dataloader as dataloader
 from ENet import ENet
 from utils import to_var
 from utils import computeDiceOneHotBinary, predToSegmentation, inference, DicesToDice, printProgressBar
@@ -18,7 +19,7 @@ from losses import Partial_CE, MIL_Loss, Size_Loss
 
 def weights_init(m):
     if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
-        nn.init.xavier_normal(m.weight.data)
+        nn.init.xavier_normal_(m.weight.data)
     elif type(m) == nn.BatchNorm2d:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
@@ -43,7 +44,15 @@ def runTraining():
     lr = 0.0005
     epoch = 1000
 
-    root_dir = './ACDC-2D-All'
+    root_dir = '/mnt/mlnas/Data/LapBypass/Sanjay/'
+    dataset_path_train = '/home/felix/Projects/tool-detection/pytorch-retinanet/data/' \
+                         'bypass_cleaned_reduced_margin20px/' \
+                         'ds_bypass_tools_segs_to_bb_margin20px_retinanet_train_bbs.csv'
+    dataset_path_val = '/home/felix/Projects/tool-detection/pytorch-retinanet/data/' \
+                       'bypass_cleaned_reduced_margin20px/' \
+                       'ds_bypass_tools_segs_to_bb_margin20px_retinanet_test_bbs.csv'
+
+
     model_dir = 'model'
 
     transform = transforms.Compose([
@@ -54,23 +63,25 @@ def runTraining():
         transforms.ToTensor()
     ])
 
-    train_set = medicalDataLoader.MedicalImageDataset('train',
-                                                      root_dir,
-                                                      transform=transform,
-                                                      mask_transform=mask_transform,
-                                                      augment=False,
-                                                      equalize=False)
+    train_set = dataloader.MedicalImageDataset('train',
+                                               root_dir,
+                                               dataset_path_train,
+                                               transform=transform,
+                                               mask_transform=mask_transform,
+                                               augment=False,
+                                               equalize=False)
 
     train_loader = DataLoader(train_set,
                               batch_size=batch_size,
                               num_workers=5,
                               shuffle=False)
 
-    val_set = medicalDataLoader.MedicalImageDataset('val',
-                                                    root_dir,
-                                                    transform=transform,
-                                                    mask_transform=mask_transform,
-                                                    equalize=False)
+    val_set = dataloader.MedicalImageDataset('val',
+                                             root_dir,
+                                             dataset_path_val,
+                                             transform=transform,
+                                             mask_transform=mask_transform,
+                                             equalize=False)
 
     val_loader = DataLoader(val_set,
                             batch_size=batch_size_val,
@@ -79,6 +90,8 @@ def runTraining():
 
     minVal = 97.9
     maxVal = 1722.6
+    # minVal = 256 * 256 * 0.01
+    # maxVal = 256 * 256 * 0.5
     minSize = torch.FloatTensor(1)
     minSize.fill_(np.int64(minVal).item())
     maxSize = torch.FloatTensor(1)
@@ -90,14 +103,14 @@ def runTraining():
     netG = ENet(1, num_classes)
 
     netG.apply(weights_init)
-    softMax = nn.Softmax()
+    softMax = nn.Softmax(dim=1)
     Dice_loss = computeDiceOneHotBinary()
 
     modelName = 'WeaklySupervised_CE-2_b'
 
     print(' Model name: {}'.format(modelName))
     partial_ce = Partial_CE()
-    mil_loss = MIL_Loss()
+    # mil_loss = MIL_Loss()
     size_loss = Size_Loss()
 
     if torch.cuda.is_available():
@@ -124,12 +137,16 @@ def runTraining():
         lossVal = []
         lossVal1 = []
 
+        blank_masks_counter = 0
         totalImages = len(train_loader)
         for j, data in enumerate(train_loader):
             image, labels, weak_labels, img_names = data
 
             # prevent batchnorm error for batch of size 1
             if image.size(0) != batch_size:
+                continue
+            if labels.sum() == 0:
+                blank_masks_counter += 1
                 continue
 
             optimizerG.zero_grad()
@@ -176,11 +193,15 @@ def runTraining():
             lossVal1.append(lossCE_numpy.data[0])
 
             printProgressBar(j + 1, totalImages,
-                             prefix="[Training] Epoch: {} ".format(i),
+                             prefix="[Training] Epoch: {} [{}/{}]".format(i, j, totalImages),
                              length=15,
-                             suffix=" Mean Dice: {:.4f}, Dice1: {:.4f} ".format(
-                                 Dice_score.data[0],
-                                 DiceB.data[0]))
+                             suffix=" Loss: {:.4f} CE: {:.4f} Sz: {:.4f} Mean Dice: {:.4f}, Dice1: {:.4f}".format(
+                                 lossG.item(),
+                                 lossCE_numpy.item(),
+                                 sizeLoss_val.item(),
+                                 Dice_score.item(),
+                                 DiceB.item())
+                             )
 
         deepSupervision = False
         printProgressBar(totalImages, totalImages,
@@ -208,7 +229,7 @@ def runTraining():
             BestDice = currentDice
             if not os.path.exists(model_dir):
                 os.makedirs(model_dir)
-            torch.save(netG, os.path.join(model_dir, "Best_" + modelName + ".pkl"))
+            torch.save(netG, os.path.join(model_dir, "Best_" + modelName + '_ep' + str(i) + ".pkl"))
 
         if i % (BestEpoch + 10):
             for param_group in optimizerG.param_groups:
