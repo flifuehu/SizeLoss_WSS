@@ -91,6 +91,13 @@ class MedicalImageDataset(Dataset):
         # mask_weak = mask_weak[None, ...]
 
         #TODO: change this to use padding instead of simply upscaling
+        # width: 376.306630 -> 380
+        # height: 216.871258 -> 220
+        # mean_R: 99.240233
+        # mean_G: 70.150994
+        # mean_B: 66.731335
+
+        
 
         # pad with neutral value to match self.size
 

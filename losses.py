@@ -22,7 +22,8 @@ class Partial_CE(torch.autograd.Function):
 
         # Mask the non-annotated pixels
         if (numPixelsNonMasked > 0):
-            loss = - np.sum(np.log(softmax_y[:, 1, :, :]+eps)*(weakLabels.view(1, 256, 256)).cpu().numpy())
+            # loss = - np.sum(np.log(softmax_y[:, 1, :, :]+eps)*(weakLabels.view(1, 256, 256)).cpu().numpy())
+            loss = - np.sum(np.log(softmax_y[:, 1, :, :] + eps) * weakLabels.cpu().numpy())
             loss /= numPixelsNonMasked
         else:
             loss = 0.0

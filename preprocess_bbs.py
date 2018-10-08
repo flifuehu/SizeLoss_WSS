@@ -57,11 +57,11 @@ def get_mask_properties(row):
 
     return props
 
-def preprocess_image(row, t):
-
-    idx, data = row
-
-    return row
+# def preprocess_image(row, t):
+#
+#     idx, data = row
+#
+#     return row
 
 
 if __name__ == '__main__':
@@ -117,10 +117,14 @@ if __name__ == '__main__':
                   'mean_G': mean_G,
                   'mean_B': mean_B}
 
-    print('Padding and resizing images...')
-    with multiprocessing.Pool(N_PROC) as p:
-        processed_img = list(tqdm(p.imap(partial(preprocess_image, t=transforms), ds.iterrows()), total=len(ds.clean)))
+    with open('transforms.txt', 'w') as f:
+        for t, v in transforms.items():
+            f.write('%s: %f\n' % (t, v))
 
-    print('Done!')
+    # print('Padding and resizing images...')
+    # with multiprocessing.Pool(N_PROC) as p:
+    #     processed_img = list(tqdm(p.imap(partial(preprocess_image, t=transforms), ds_clean.iterrows()), total=len(ds_clean)))
+
+    print('Done! Transforms to be performed saved in transforms.txt')
 
 

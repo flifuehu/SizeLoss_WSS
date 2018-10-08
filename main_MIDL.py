@@ -39,9 +39,9 @@ def runTraining():
     print('-' * 40)
 
     # Batch size for training MUST be 1 in weakly/semi supervised learning if we want to impose constraints.
-    batch_size = 1
-    batch_size_val = 1
-    lr = 0.0005
+    batch_size = 24
+    batch_size_val = 24
+    lr = 0.005  # 0.0005
     epoch = 1000
 
     root_dir = '/mnt/mlnas/Data/LapBypass/Sanjay/'
